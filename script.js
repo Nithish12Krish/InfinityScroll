@@ -1,70 +1,91 @@
-const quoteContainer=document.getElementById('quote-container');
-const quoteText=document.getElementById('quote');
-const authorText=document.getElementById('author');
-const twitterBtn=document.getElementById('twitter');
-const newQuoteBtn=document.getElementById('newquote');
+
+const imageContainer=document.getElementById('image-container');
 const loader=document.getElementById('loader');
+let ready=false;
+let imageLoad=0;
+let totalImages=0;
+let photosArray=[];
+let isInitialLoad = true;
+//UnSplash API
+let initialCount = 5
+const apiKey='cQLCQjCSt3CFwW4ArG7XtM6KnGlykI6JshOAyIdlgfo';
+let apiUrl=`https://api.unsplash.com/photos/random/?client_id=${apiKey}&count=${initialCount}`;
 
-//show loading
- function loading()
- {
-     loader.hidden=false;
-     quoteContainer.hidden=true;  
- }
-
- //Hide loading
- function complete()
- {
-     if(!loader.hidden)
-     {
-         quoteContainer.hidden=false;
-         loader.hidden=true;
-     }
- }
-
-//Get Quote From API
-async function getQuote(){
-    loading();
-    const proxyUrl='https://cors-anywhere.herokuapp.com/';
-    const apiUrl='http://api.forismatic.com/api/1.0/?method=getQuote&lang=en&format=json';
-    try{
-        const response=await fetch(proxyUrl + apiUrl);
-        const data=await response.json();
-        if(data.quoteAuthor==='')
-        {
-            authorText.innerHTML='Unknown';
-        }
-        else{
-            authorText.innerHTML=data.quoteAuthor;
-        }
-        //Reduce font Size for long quote
-        if(data.quoteText.length>50)
-        {
-            quoteText.classList.add('long-quote');
-        }
-        else{
-            quoteText.classList.remove ('long-quote');
-        }
-        quoteText.innerHTML=data.quoteText;
-        //stop Loader,show Quote
-        complete();
-
-    }catch(error){
-        getQuote();
-       
+//Update API url
+function updateAPIURLWithNewCount (picCount) {
+    apiUrl = `https://api.unsplash.com/photos/random?client_id=${apiKey}&count=${picCount}`;
+  }
+//Check if all images were loaded
+function imageLoaded()
+{
+    imageLoad++;
+    if(imageLoad===totalImages)
+    {
+        ready=true;
+        loader.hidden=true;
     }
 
 }
-//Tweet Quote
-function tweetQuote()
+
+//Helper Function to set Attributes on DOM Element
+function setAttributes(element,attributes)
 {
-    const quote=quoteText.innerText;
-    const author=authorText.innerText;
-    const twitterUrl=`https://twitter.com/intent/tweet?text=${quote} - ${author}`;
-    window.open(twitterUrl,'_blank');
+    for(const key in attributes){
+        element.setAttribute(key,attributes[key]);
+    }
 }
-//Event Listener
-twitterBtn.addEventListener('click',tweetQuote);
-newQuoteBtn.addEventListener('click', getQuote);
-//On Load
-getQuote();
+//Create Elements for Links & Photos, Add to DOM
+function displayPhotos()
+{
+    imageLoad=0;
+    totalImages=photosArray.length;
+    //Run function for each object in photoArray
+    photosArray.forEach((photo)=>{
+        const item=document.createElement('a');
+        setAttributes(item,{
+        href:photo.links.html,
+        target:'_blank'});
+        //<img> for photo
+        const img=document.createElement('img');
+        setAttributes(img,{
+            src:photo.urls.regular,
+            alt:photo.alt_description,
+            title:photo.alt_description
+        });
+        //Event Listener when Each is finish Loading
+        img.addEventListener('load',imageLoaded);
+        //put img into <a>
+        item.appendChild(img);
+        imageContainer.appendChild(item);
+    });
+
+}
+
+//Get photos from Unsplash API
+async function getPhotos()
+{
+    try{
+        const response=await fetch(apiUrl);
+        photosArray=await response.json();
+        displayPhotos(); 
+        if (isInitialLoad) { 
+            updateAPIURLWithNewCount(30);
+            isInitialLoad = false;
+          }
+
+    }catch(error)
+    {
+
+    }
+}
+//Check to see if Scrolling near bottom of page, Load more photos
+window.addEventListener('scroll',()=>{
+    if(window.innerHeight+window.scrollY>=document.body.offsetHeight-1000 &&ready)
+    {
+        ready=false;
+        getPhotos();
+    }
+    
+});
+//OnLoad
+getPhotos();
